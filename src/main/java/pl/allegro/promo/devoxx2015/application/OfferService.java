@@ -1,6 +1,7 @@
 package pl.allegro.promo.devoxx2015.application;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Component;
 import pl.allegro.promo.devoxx2015.domain.Offer;
 import pl.allegro.promo.devoxx2015.domain.OfferRepository;
@@ -21,10 +22,24 @@ public class OfferService {
     }
 
     public void processOffers(List<OfferPublishedEvent> events) {
-        // TODO save offers with pretty photos
+        events.parallelStream().forEach(
+                (event) -> {
+                    try {
+                        double score = photoScoreSource.getScore(event.getPhotoUrl());
+                        if (score >= 0.7) {
+                            offerRepository.save(
+                                    new Offer(
+                                            event.getId(), event.getTitle(), event.getPhotoUrl(), score));
+                        }
+                    } catch (Exception e) {
+                        offerRepository.save(
+                                new Offer(
+                                        event.getId(), event.getTitle(), event.getPhotoUrl(), 0.7));
+                    }
+                });
     }
 
     public List<Offer> getOffers() {
-        return offerRepository.findAll(); // TODO some sorting?
+        return offerRepository.findAll(new Sort(new Sort.Order(Sort.Direction.DESC, "photoScore")));
     }
 }
